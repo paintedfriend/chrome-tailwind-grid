@@ -10,6 +10,9 @@ The popup lets you configure the column count, gap, container CSS selector,
 column opacity, and grid visibility. Settings are synced through Chrome and
 applied to an enabled overlay immediately.
 
+The enabled state is kept per tab for the current browser session, so the grid
+is restored automatically after reloading that tab.
+
 ## Installation
 
 1. Open `chrome://extensions`.

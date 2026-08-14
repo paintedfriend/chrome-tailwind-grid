@@ -3,6 +3,7 @@ const toggleButton = document.getElementById("toggle");
 const toggleLabel = toggleButton.querySelector(".toggle__label");
 const statusText = document.getElementById("status");
 const resetButton = document.getElementById("reset");
+const ENABLED_TABS_KEY = "gridEnabledTabIds";
 
 const DEFAULT_SETTINGS = {
   columns: 12,
@@ -54,6 +55,22 @@ async function readGridState(tabId) {
   return Boolean(result?.result);
 }
 
+async function getEnabledTabIds() {
+  const stored = await chrome.storage.session.get(ENABLED_TABS_KEY);
+  return Array.isArray(stored[ENABLED_TABS_KEY])
+    ? stored[ENABLED_TABS_KEY]
+    : [];
+}
+
+async function saveGridState(tabId, enabled) {
+  const tabIds = await getEnabledTabIds();
+  const nextTabIds = enabled
+    ? [...new Set([...tabIds, tabId])]
+    : tabIds.filter((id) => id !== tabId);
+
+  await chrome.storage.session.set({ [ENABLED_TABS_KEY]: nextTabIds });
+}
+
 async function initialize() {
   try {
     const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
@@ -63,7 +80,19 @@ async function initialize() {
     if (!tab?.id) throw new Error("Active tab is unavailable");
 
     activeTabId = tab.id;
-    render(await readGridState(activeTabId));
+    const enabledTabIds = await getEnabledTabIds();
+    let enabled = await readGridState(activeTabId);
+
+    if (!enabled && enabledTabIds.includes(activeTabId)) {
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTabId },
+        files: ["grid.js"],
+      });
+      enabled = true;
+    }
+
+    await saveGridState(activeTabId, enabled);
+    render(enabled);
   } catch (error) {
     console.warn("Grid Overlay:", error);
     showError();
@@ -112,11 +141,13 @@ toggleButton.addEventListener("click", async () => {
   statusText.textContent = "";
 
   try {
+    const enabled = !gridEnabled;
     await chrome.scripting.executeScript({
       target: { tabId: activeTabId },
-      files: ["grid.js"],
+      files: [enabled ? "grid.js" : "remove-grid.js"],
     });
-    render(!gridEnabled);
+    await saveGridState(activeTabId, enabled);
+    render(enabled);
   } catch (error) {
     console.warn("Grid Overlay:", error);
     showError();

@@ -4,11 +4,6 @@
   const existingGrid = document.getElementById(GRID_ID);
 
   if (existingGrid) {
-    if (typeof window[CLEANUP_KEY] === "function") {
-      window[CLEANUP_KEY]();
-    } else {
-      existingGrid.remove();
-    }
     return;
   }
 
